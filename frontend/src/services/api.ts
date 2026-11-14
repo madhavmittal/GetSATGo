@@ -19,8 +19,13 @@ const getApiBase = (): string => {
     return import.meta.env.VITE_API_URL;
   }
   if (typeof window !== 'undefined' && window.location) {
-    const hostname = window.location.hostname || '127.0.0.1';
-    return `http://${hostname}:8000/api`;
+    const hostname = window.location.hostname;
+    // Local development: connect to FastAPI on port 8000
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return `http://${hostname}:8000/api`;
+    }
+    // Production (served via Railway / Render): same origin
+    return `${window.location.origin}/api`;
   }
   return 'http://127.0.0.1:8000/api';
 };
