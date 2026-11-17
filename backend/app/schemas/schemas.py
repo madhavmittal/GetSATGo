@@ -1,15 +1,8 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
 
 # Auth Schemas
-class UserRegister(BaseModel):
-    email: EmailStr
-    password: str
-    full_name: str
-    role: Literal["student", "teacher"] = "student"
-    teacher_invite_code: Optional[str] = None
-
 class RegistrationRequestCreated(BaseModel):
     status: Literal["pending"] = "pending"
     message: str
@@ -17,6 +10,12 @@ class RegistrationRequestCreated(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+class GoogleAuthRequest(BaseModel):
+    credential: str = Field(min_length=1, max_length=8192)
+    mode: Literal["login", "register"] = "login"
+    role: Literal["student", "teacher"] = "student"
+    teacher_invite_code: Optional[str] = None
 
 class Token(BaseModel):
     access_token: str

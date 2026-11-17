@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -42,7 +43,7 @@ class RegistrationApprovalTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
-    def test_registration_creates_pending_account_without_token(self):
+    def test_password_registration_is_disabled(self):
         with self.create_client() as client:
             response = client.post(
                 "/auth/register",
@@ -53,12 +54,167 @@ class RegistrationApprovalTests(unittest.TestCase):
                 },
             )
 
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.session.query(User).count(), 0)
+
+    def test_google_registration_creates_pending_account(self):
+        claims = {
+            "email": " Student@Example.com ",
+            "email_verified": True,
+            "sub": "google-user-1",
+            "name": "Test Student",
+        }
+        with (
+            patch("app.api.auth.settings.GOOGLE_CLIENT_ID", "test-client-id"),
+            patch("app.api.auth.verify_oauth2_token", return_value=claims),
+            self.create_client() as client,
+        ):
+            response = client.post(
+                "/auth/google",
+                json={"credential": "test-credential", "mode": "register"},
+            )
+
         user = self.session.query(User).filter_by(email="student@example.com").one()
         self.assertEqual(response.status_code, 202)
         self.assertEqual(response.json()["status"], "pending")
         self.assertNotIn("access_token", response.json())
         self.assertFalse(user.is_approved)
-        self.assertNotEqual(user.hashed_password, "a-strong-password")
+        self.assertEqual(user.role, "student")
+        self.assertNotEqual(user.hashed_password, "test-credential")
+
+    def test_google_login_requires_verified_email(self):
+        claims = {
+            "email": "student@example.com",
+            "email_verified": False,
+            "sub": "google-user-1",
+        }
+        with (
+            patch("app.api.auth.settings.GOOGLE_CLIENT_ID", "test-client-id"),
+            patch("app.api.auth.verify_oauth2_token", return_value=claims),
+            self.create_client() as client,
+        ):
+            response = client.post(
+                "/auth/google",
+                json={"credential": "test-credential", "mode": "register"},
+            )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(self.session.query(User).count(), 0)
+
+    def test_google_auth_requires_client_configuration(self):
+        with (
+            patch("app.api.auth.settings.GOOGLE_CLIENT_ID", ""),
+            self.create_client() as client,
+        ):
+            response = client.post(
+                "/auth/google",
+                json={"credential": "test-credential", "mode": "register"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+
+    def test_teacher_google_registration_requires_invitation_code(self):
+        claims = {
+            "email": "teacher@example.com",
+            "email_verified": True,
+            "sub": "google-teacher-1",
+        }
+        with (
+            patch("app.api.auth.settings.GOOGLE_CLIENT_ID", "test-client-id"),
+            patch("app.api.auth.settings.TEACHER_SIGNUP_CODE", "valid-code"),
+            patch("app.api.auth.verify_oauth2_token", return_value=claims),
+            self.create_client() as client,
+        ):
+            response = client.post(
+                "/auth/google",
+                json={
+                    "credential": "test-credential",
+                    "mode": "register",
+                    "role": "teacher",
+                    "teacher_invite_code": "invalid-code",
+                },
+            )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.session.query(User).count(), 0)
+
+    def test_google_login_authenticates_existing_approved_user(self):
+        user = User(
+            email="student@example.com",
+            hashed_password=get_password_hash("password"),
+            full_name="Approved Student",
+            role="student",
+            is_approved=True,
+        )
+        self.session.add(user)
+        self.session.commit()
+        claims = {
+            "email": "STUDENT@example.com",
+            "email_verified": True,
+            "sub": "google-user-1",
+        }
+
+        with (
+            patch("app.api.auth.settings.GOOGLE_CLIENT_ID", "test-client-id"),
+            patch("app.api.auth.verify_oauth2_token", return_value=claims),
+            self.create_client() as client,
+        ):
+            response = client.post(
+                "/auth/google",
+                json={"credential": "test-credential", "mode": "login"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["access_token"])
+        self.assertEqual(response.json()["user"]["email"], user.email)
+
+    def test_google_login_does_not_create_unknown_account(self):
+        claims = {
+            "email": "student@example.com",
+            "email_verified": True,
+            "sub": "google-user-1",
+        }
+        with (
+            patch("app.api.auth.settings.GOOGLE_CLIENT_ID", "test-client-id"),
+            patch("app.api.auth.verify_oauth2_token", return_value=claims),
+            self.create_client() as client,
+        ):
+            response = client.post(
+                "/auth/google",
+                json={"credential": "test-credential", "mode": "login"},
+            )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(self.session.query(User).count(), 0)
+
+    def test_pending_google_account_cannot_log_in(self):
+        user = User(
+            email="student@example.com",
+            hashed_password=get_password_hash("password"),
+            full_name="Pending Student",
+            role="student",
+            is_approved=False,
+        )
+        self.session.add(user)
+        self.session.commit()
+        claims = {
+            "email": "student@example.com",
+            "email_verified": True,
+            "sub": "google-user-1",
+        }
+
+        with (
+            patch("app.api.auth.settings.GOOGLE_CLIENT_ID", "test-client-id"),
+            patch("app.api.auth.verify_oauth2_token", return_value=claims),
+            self.create_client() as client,
+        ):
+            response = client.post(
+                "/auth/google",
+                json={"credential": "test-credential", "mode": "login"},
+            )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "Your account is awaiting administrator approval.")
 
     def test_pending_account_cannot_log_in(self):
         user = User(

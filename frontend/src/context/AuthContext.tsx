@@ -8,13 +8,12 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (
-    email: string,
-    password: string,
-    name: string,
-    role?: 'student' | 'teacher',
+  googleLogin: (
+    credential: string,
+    mode: 'login' | 'register',
+    role: 'student' | 'teacher',
     teacherInviteCode?: string
-  ) => Promise<void>;
+  ) => Promise<boolean>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -58,15 +57,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     analytics.track('login_success', { role: data.user.role });
   };
 
-  const register = async (
-    email: string,
-    password: string,
-    name: string,
-    role: 'student' | 'teacher' = 'student',
+  const googleLogin = async (
+    credential: string,
+    mode: 'login' | 'register',
+    role: 'student' | 'teacher',
     teacherInviteCode?: string
   ) => {
-    await api.register(email, password, name, role, teacherInviteCode);
-    analytics.track('registration_request_submitted', { role });
+    const data = await api.googleAuth(
+      credential,
+      mode,
+      role,
+      teacherInviteCode
+    );
+    if ('status' in data) {
+      analytics.track('registration_request_submitted', {
+        role,
+        provider: 'google',
+      });
+      return false;
+    }
+
+    setAuthenticatedSession(data);
+    analytics.track('login_success', {
+      role: data.user.role,
+      provider: 'google',
+    });
+    return true;
   };
 
   const logout = () => {
@@ -88,7 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isLoading,
         login,
-        register,
+        googleLogin,
         logout,
         refreshUser,
       }}

@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
+import {
+  GoogleLogin,
+  GoogleOAuthProvider,
+  type CredentialResponse,
+} from '@react-oauth/google';
 import { GraduationCap, ArrowRight, Sparkles, Clock, Calculator } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
 export const AuthPage: React.FC = () => {
-  const { login, register } = useAuth();
+  const { login, googleLogin } = useAuth();
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [teacherInviteCode, setTeacherInviteCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [registrationSubmitted, setRegistrationSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,15 +27,34 @@ export const AuthPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      if (isLoginMode) {
-        await login(email, password);
-      } else {
-        await register(email, password, fullName, role, teacherInviteCode || undefined);
-        setRegistrationSubmitted(true);
-        setPassword('');
-      }
+      await login(email, password);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Authentication failed. Please verify your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
+    if (!credentialResponse.credential) {
+      setError('Google did not return a sign-in credential. Please try again.');
+      return;
+    }
+
+    setError(null);
+    setIsLoading(true);
+    try {
+      const authenticated = await googleLogin(
+        credentialResponse.credential,
+        isLoginMode ? 'login' : 'register',
+        role,
+        teacherInviteCode || undefined
+      );
+      if (!authenticated) {
+        setRegistrationSubmitted(true);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Google sign-in failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -75,57 +99,8 @@ export const AuthPage: React.FC = () => {
                 Return to sign in
               </Button>
             </div>
-          ) : (
+          ) : isLoginMode ? (
             <form onSubmit={handleSubmit} className="space-y-4">
-              {!isLoginMode && (
-                <>
-                  <Input
-                    label="Full Name"
-                    type="text"
-                    placeholder="e.g. Alex Chen"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Account Role</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setRole('student')}
-                        className={`py-2 px-3 text-xs font-semibold rounded-xl border transition ${
-                          role === 'student'
-                            ? 'border-blue-600 bg-blue-50 text-blue-700'
-                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        Student
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRole('teacher')}
-                        className={`py-2 px-3 text-xs font-semibold rounded-xl border transition ${
-                          role === 'teacher'
-                            ? 'border-purple-600 bg-purple-50 text-purple-700'
-                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                        }`}
-                      >
-                        Teacher
-                      </button>
-                    </div>
-                  </div>
-                  {role === 'teacher' && (
-                    <Input
-                      label="Teacher invitation code"
-                      type="password"
-                      value={teacherInviteCode}
-                      onChange={(e) => setTeacherInviteCode(e.target.value)}
-                      required
-                    />
-                  )}
-                </>
-              )}
-
               <Input
                 label="Email Address"
                 type="email"
@@ -150,29 +125,97 @@ export const AuthPage: React.FC = () => {
                 className="w-full mt-2"
                 isLoading={isLoading}
               >
-                {isLoginMode ? 'Sign In' : `Create ${role === 'teacher' ? 'Teacher' : 'Student'} Account`}
+                Sign In
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </form>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Account Role</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRole('student')}
+                    className={`py-2 px-3 text-xs font-semibold rounded-xl border transition ${
+                      role === 'student'
+                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Student
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole('teacher')}
+                    className={`py-2 px-3 text-xs font-semibold rounded-xl border transition ${
+                      role === 'teacher'
+                        ? 'border-purple-600 bg-purple-50 text-purple-700'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Teacher
+                  </button>
+                </div>
+              </div>
+              {role === 'teacher' && (
+                <Input
+                  label="Teacher invitation code"
+                  type="password"
+                  value={teacherInviteCode}
+                  onChange={(e) => setTeacherInviteCode(e.target.value)}
+                  required
+                />
+              )}
+              <p className="text-sm text-slate-600">
+                New accounts use a verified Google email and require administrator approval.
+              </p>
+            </div>
           )}
 
           {!registrationSubmitted && (
-          <div className="mt-6 pt-5 border-t border-slate-100 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setIsLoginMode(!isLoginMode);
-                setError(null);
-                setTeacherInviteCode('');
-                setRegistrationSubmitted(false);
-              }}
-              className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition"
-            >
-              {isLoginMode
-                ? "Don't have an account? Create one"
-                : 'Already have an account? Sign in'}
-            </button>
-          </div>
+            <div className="mt-5 flex flex-col items-center gap-2">
+              {googleClientId && (
+                <span className="text-xs uppercase tracking-wide text-slate-400">
+                  Or continue with
+                </span>
+              )}
+              {googleClientId ? (
+                <GoogleOAuthProvider clientId={googleClientId}>
+                  <div className={isLoading ? 'pointer-events-none opacity-60' : undefined}>
+                    <GoogleLogin
+                      onSuccess={handleGoogleSuccess}
+                      onError={() => setError('Google sign-in was cancelled or failed. Please try again.')}
+                      text={isLoginMode ? 'signin_with' : 'signup_with'}
+                      width="320"
+                    />
+                  </div>
+                </GoogleOAuthProvider>
+              ) : (
+                <p role="status" className="text-sm text-amber-700 text-center">
+                  Google sign-in is not configured for this deployment.
+                </p>
+              )}
+            </div>
+          )}
+
+          {!registrationSubmitted && (
+            <div className="mt-6 pt-5 border-t border-slate-100 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLoginMode(!isLoginMode);
+                  setError(null);
+                  setTeacherInviteCode('');
+                  setRegistrationSubmitted(false);
+                }}
+                className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition"
+              >
+                {isLoginMode
+                  ? "Don't have an account? Create one with Google"
+                  : 'Already have an account? Sign in'}
+              </button>
+            </div>
           )}
         </div>
 

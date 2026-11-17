@@ -4,6 +4,7 @@ services:
       context: .
       args:
         MIXPANEL_PROJECT_TOKEN: ${VITE_MIXPANEL_TOKEN:-}
+        GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     ports:
       - "8000:8000"
     environment:
@@ -14,6 +15,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL in .env}
       TEACHER_SIGNUP_CODE: ${TEACHER_SIGNUP_CODE:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       SUPERUSER_EMAIL: ${SUPERUSER_EMAIL:-}
       SUPERUSER_PASSWORD: ${SUPERUSER_PASSWORD:-}
       SUPERUSER_NAME: ${SUPERUSER_NAME:-Madhav Mittal}

@@ -85,16 +85,23 @@ class ApiService {
     });
   }
 
-  async register(
-    email: string,
-    password: string,
-    full_name: string,
-    role: 'student' | 'teacher' = 'student',
+  async googleAuth(
+    credential: string,
+    mode: 'login' | 'register',
+    role: 'student' | 'teacher',
     teacher_invite_code?: string
-  ): Promise<{ status: 'pending'; message: string }> {
-    return this.request('/auth/register', {
+  ): Promise<
+    | { access_token: string; user: User }
+    | { status: 'pending'; message: string }
+  > {
+    return this.request('/auth/google', {
       method: 'POST',
-      body: JSON.stringify({ email, password, full_name, role, teacher_invite_code }),
+      body: JSON.stringify({
+        credential,
+        mode,
+        role,
+        teacher_invite_code,
+      }),
     });
   }
 
