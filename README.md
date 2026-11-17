@@ -109,5 +109,6 @@ npm run dev
 - **Teacher onboarding**: Set `TEACHER_SIGNUP_CODE` to enable teacher registration. Share it only with trusted educators; leaving it empty disables teacher sign-up.
 - **Mixpanel**: Set `VITE_MIXPANEL_TOKEN` in `frontend/.env.local` for local development. Docker builds accept the same project token as `MIXPANEL_PROJECT_TOKEN`; hosted frontend builds need `VITE_MIXPANEL_TOKEN` in project environment settings. Use the Mixpanel project token, not the numeric project ID. The app records page views using normalized paths plus successful login, registration-request, and logout events. It does not enable autocapture or send email, names, or passwords.
 - **Docker deployment**: Copy `.env.example`, replace the placeholder secrets, set `FRONTEND_URL` to the public app URL, then run `docker compose up --build`. For local Compose, use `http://localhost:8000` as `FRONTEND_URL`; for Vite development, use `http://localhost:5173`.
+- **Railway**: Use the Dockerfile builder with `/Dockerfile`. Service variables are available during builds, and `MIXPANEL_PROJECT_TOKEN` is passed to the frontend build by the Dockerfile.
 The database seeds practice questions and mock tests for a fresh installation. Users register through the app; no pre-defined accounts or sample performance records are created.
 
