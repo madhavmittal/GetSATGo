@@ -3,10 +3,10 @@ from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import desc
 
 from app.models.database import get_db
-from app.models.models import User, TestAttempt, DrillAttempt, Question, MockTest, MockTestQuestion
+from app.models.models import User, TestAttempt, DrillAttempt, Question, MockTest
 from app.api.deps import require_teacher
 from pydantic import BaseModel
 

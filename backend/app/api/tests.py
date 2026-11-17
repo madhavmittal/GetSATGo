@@ -1,10 +1,8 @@
 import json
-from fractions import Fraction
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
 
 from app.models.database import get_db
 from app.models.models import MockTest, MockTestQuestion, Question, TestAttempt, TestAttemptAnswer, User
