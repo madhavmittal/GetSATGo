@@ -11,10 +11,6 @@ const DEFAULT_PUBLIC_SETTINGS: PublicSettings = {
   target_score: 1500,
   enable_desmos_calculator: true,
   enable_math_reference_sheet: true,
-  require_subscription_for_mocks: true,
-  require_subscription_for_drills: false,
-  pro_pass_monthly_price: 29,
-  trial_duration_days: 30,
   default_drill_question_count: 5,
 };
 

@@ -12,7 +12,7 @@ from app.schemas.schemas import (
     MockTestListItem, MockTestDetailResponse, QuestionTakingResponse, QuestionOption,
     TestSubmission, TestAttemptResultResponse, SectionStat, TopicStat, QuestionReviewResponse
 )
-from app.api.deps import get_current_user, require_active_subscription
+from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/tests", tags=["Mock Tests"])
 
@@ -65,7 +65,7 @@ def check_answer_correctness(question: Question, student_answer: Optional[str]) 
 @router.get("", response_model=List[MockTestListItem])
 def list_mock_tests(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
+    current_user: User = Depends(get_current_user)
 ):
     tests = db.query(MockTest).filter(MockTest.is_active == True).all()
     results = []
@@ -93,11 +93,14 @@ def list_mock_tests(
 
     return results
 
-@router.get("/{test_id}", response_model=MockTestDetailResponse)
+@router.get(
+    "/{test_id}",
+    response_model=MockTestDetailResponse,
+    dependencies=[Depends(get_current_user)],
+)
 def get_mock_test(
     test_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
 ):
     """
     Serves the selected mock test with sanitized questions (without exposing correct answers).
@@ -143,7 +146,7 @@ def submit_mock_test(
     test_id: int,
     submission: TestSubmission,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
+    current_user: User = Depends(get_current_user)
 ):
     test = db.query(MockTest).filter(MockTest.id == test_id).first()
     if not test:
@@ -154,7 +157,6 @@ def submit_mock_test(
         MockTestQuestion.mock_test_id == test_id
     ).order_by(MockTestQuestion.order).all()
 
-    q_map = {tq.question_id: tq for tq in tq_records}
     submitted_answers_map = {ans.question_id: ans for ans in submission.answers}
 
     raw_score = 0
@@ -299,7 +301,7 @@ def submit_mock_test(
 def get_attempt_detail(
     attempt_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
+    current_user: User = Depends(get_current_user)
 ):
     attempt = db.query(TestAttempt).filter(TestAttempt.id == attempt_id).first()
     if not attempt:

@@ -1,11 +1,9 @@
-from typing import Generator, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.models.database import get_db
 from app.models.models import User
 from app.core.security import decode_access_token
-from datetime import datetime, timezone
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -34,36 +32,21 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exception
+    if not user.is_approved:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is awaiting administrator approval."
+        )
     return user
 
-def require_active_subscription(
+def require_admin(
     current_user: User = Depends(get_current_user)
 ) -> User:
-    """
-    Validates user session and ensures they have an active subscription
-    (or are a teacher/admin).
-    """
-    if current_user.role in ["teacher", "admin"]:
-        return current_user
-        
-    if current_user.subscription_status != "active":
+    if current_user.role != "admin":
         raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail="Active subscription required. Please activate your SAT Pass to access tests and drills."
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator privileges required."
         )
-    
-    if current_user.subscription_expires_at:
-        now = datetime.now(timezone.utc)
-        # Handle naive or aware comparisons
-        expires_at = current_user.subscription_expires_at
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        if expires_at < now:
-            raise HTTPException(
-                status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail="Your subscription has expired. Please renew your SAT Pass."
-            )
-
     return current_user
 
 def require_teacher(

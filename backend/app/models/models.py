@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, Boolean, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Boolean, Float, DateTime, ForeignKey, text
 from sqlalchemy.orm import relationship
 from app.models.database import Base
 
@@ -12,12 +12,8 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
     role = Column(String(50), default="student")  # "student", "teacher", "admin"
-    
-    # Subscription status: active, expired, trial, inactive
-    subscription_status = Column(String(50), default="active")
-    subscription_plan = Column(String(50), default="Pro SAT Pass")
-    subscription_expires_at = Column(DateTime, nullable=True)
-    
+    is_approved = Column(Boolean, nullable=False, default=True, server_default=text("TRUE"))
+
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -171,7 +167,7 @@ class SystemSetting(Base):
     id = Column(Integer, primary_key=True, index=True)
     key = Column(String(100), unique=True, index=True, nullable=False)
     value_json = Column(Text, nullable=False) # JSON encoded: bool, int, float, str
-    category = Column(String(50), default="general") # "exam", "tools", "subscription", "drills"
+    category = Column(String(50), default="general")  # "exam", "tools", "drills"
     label = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     setting_type = Column(String(20), default="boolean") # "boolean", "number", "string", "select"

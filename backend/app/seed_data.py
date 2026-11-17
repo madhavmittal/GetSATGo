@@ -1,39 +1,15 @@
 import json
-from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
-from app.models.models import User, Question, MockTest, MockTestQuestion, TestAttempt, TestAttemptAnswer, DrillAttempt, DrillAttemptAnswer
-from app.core.security import get_password_hash
+from app.models.models import Question, MockTest, MockTestQuestion
 
 def seed_database(db: Session):
-    # Check if already seeded
-    if db.query(User).filter(User.email == "student@getsatgo.com").first():
-        print("Database already seeded.")
+    if db.query(MockTest).filter(
+        MockTest.title == "Digital SAT Official Practice Test #1 (Diagnostic Exam)"
+    ).first():
+        print("Practice content already seeded.")
         return
 
-    print("Seeding database with SAT questions, tests, and users...")
-
-    # 1. Create Teacher and Student users
-    teacher = User(
-        email="teacher@getsatgo.com",
-        hashed_password=get_password_hash("teacher123"),
-        full_name="Prof. Sarah Jenkins (SAT Coach)",
-        role="teacher",
-        subscription_status="active",
-        subscription_plan="Educator Enterprise",
-        subscription_expires_at=datetime.now(timezone.utc) + timedelta(days=365)
-    )
-    student = User(
-        email="student@getsatgo.com",
-        hashed_password=get_password_hash("student123"),
-        full_name="Alex Chen",
-        role="student",
-        subscription_status="active",
-        subscription_plan="Pro SAT 1600 Pass",
-        subscription_expires_at=datetime.now(timezone.utc) + timedelta(days=60)
-    )
-    db.add_all([teacher, student])
-    db.commit()
-    db.refresh(student)
+    print("Seeding practice questions and mock tests...")
 
     # 2. SAT Questions Dataset (Curated realistic Digital SAT questions)
     raw_questions = [
@@ -344,59 +320,6 @@ def seed_database(db: Session):
 
     db.commit()
 
-    # 4. Create a realistic historical attempt for student Alex Chen so the dashboard shows rich analytics on first launch
-    attempt1 = TestAttempt(
-        user_id=student.id,
-        mock_test_id=test1.id,
-        started_at=datetime.now(timezone.utc) - timedelta(days=2),
-        completed_at=datetime.now(timezone.utc) - timedelta(days=2, minutes=-32),
-        raw_score=11,
-        total_questions=len(saved_questions),
-        scaled_score=680,
-        total_time_spent_seconds=1840,
-        section_analysis_json=json.dumps({
-            "Math Module 1": {"correct": 9, "total": 11, "time_seconds": 1280},
-            "Reading & Writing Module 1": {"correct": 2, "total": 3, "time_seconds": 560}
-        }),
-        topic_analysis_json=json.dumps({
-            "Algebra": {"correct": 3, "total": 3, "time_seconds": 240},
-            "Advanced Math": {"correct": 2, "total": 3, "time_seconds": 380},
-            "Problem-Solving & Data Analysis": {"correct": 2, "total": 2, "time_seconds": 210},
-            "Geometry & Trigonometry": {"correct": 2, "total": 3, "time_seconds": 450},
-            "Craft & Structure": {"correct": 1, "total": 2, "time_seconds": 320},
-            "Information & Ideas": {"correct": 1, "total": 1, "time_seconds": 240}
-        })
-    )
-    db.add(attempt1)
-    db.flush()
-
-    for idx, q in enumerate(saved_questions):
-        # Let's say question index 4 and 9 were wrong for sample realism
-        is_corr = idx not in [4, 9, 12]
-        ans_val = q.correct_answer if is_corr else ("A" if q.correct_answer != "A" else "C")
-        t_ans = TestAttemptAnswer(
-            attempt_id=attempt1.id,
-            question_id=q.id,
-            student_answer=ans_val,
-            is_correct=is_corr,
-            time_spent_seconds=85 + (idx * 5) % 40,
-            is_flagged=(idx == 4 or idx == 10)
-        )
-        db.add(t_ans)
-
-    # Add a sample drill attempt
-    drill1 = DrillAttempt(
-        user_id=student.id,
-        domain="Math",
-        topic="Algebra",
-        difficulty="Medium",
-        total_questions=5,
-        correct_count=4,
-        total_time_spent_seconds=360,
-        completed_at=datetime.now(timezone.utc) - timedelta(days=1)
-    )
-    db.add(drill1)
-
     db.commit()
-    print("Database seeding completed successfully!")
+    print("Practice content seeded successfully.")
 

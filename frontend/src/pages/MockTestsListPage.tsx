@@ -6,7 +6,6 @@ import { MockTestListItem } from '../types';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
-import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 
 interface MockTestsListPageProps {
@@ -15,7 +14,6 @@ interface MockTestsListPageProps {
 
 export const MockTestsListPage: React.FC<MockTestsListPageProps> = ({ onSelectTest }) => {
   const navigate = useNavigate();
-  const { isSubscriptionActive, setShowSubModal } = useAuth();
   const { settings } = useSettings();
 
   const [tests, setTests] = useState<MockTestListItem[]>([]);
@@ -32,9 +30,6 @@ export const MockTestsListPage: React.FC<MockTestsListPageProps> = ({ onSelectTe
       const data = await api.getMockTests();
       setTests(data);
     } catch (err: any) {
-      if (err.status === 402) {
-        setShowSubModal(true);
-      }
       setError(err.message || 'Failed to load mock tests.');
     } finally {
       setIsLoading(false);
@@ -42,11 +37,6 @@ export const MockTestsListPage: React.FC<MockTestsListPageProps> = ({ onSelectTe
   };
 
   const handleStart = (testId: number) => {
-    const isGated = settings.require_subscription_for_mocks !== false;
-    if (isGated && !isSubscriptionActive) {
-      setShowSubModal(true);
-      return;
-    }
     if (onSelectTest) {
       onSelectTest(testId);
     } else {

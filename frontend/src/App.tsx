@@ -10,7 +10,6 @@ import { TestResultPage } from './pages/TestResultPage';
 import { DrillPracticePage } from './pages/DrillPracticePage';
 import { TeacherDashboardPage } from './pages/TeacherDashboardPage';
 import { NotFoundPage } from './pages/NotFoundPage';
-import { SubscriptionModal } from './components/SubscriptionModal';
 
 export const App: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -66,7 +65,6 @@ export const App: React.FC = () => {
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </main>
-            <SubscriptionModal />
           </div>
         }
       />

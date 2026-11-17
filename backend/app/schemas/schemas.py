@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
 
 # Auth Schemas
@@ -7,7 +7,12 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     full_name: str
-    role: Optional[str] = "student"
+    role: Literal["student", "teacher"] = "student"
+    teacher_invite_code: Optional[str] = None
+
+class RegistrationRequestCreated(BaseModel):
+    status: Literal["pending"] = "pending"
+    message: str
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -23,17 +28,18 @@ class UserResponse(BaseModel):
     email: str
     full_name: str
     role: str
-    subscription_status: str
-    subscription_plan: Optional[str] = None
-    subscription_expires_at: Optional[datetime] = None
+    is_approved: bool
     created_at: datetime
 
     class Config:
         from_attributes = True
 
-class SubscriptionUpdate(BaseModel):
-    plan: str = "Pro SAT Pass"
-    duration_months: int = 1
+class PendingRegistrationResponse(BaseModel):
+    id: int
+    email: str
+    full_name: str
+    role: Literal["student", "teacher"]
+    created_at: datetime
 
 # Question Schemas
 class QuestionOption(BaseModel):
@@ -163,7 +169,6 @@ class RecentActivity(BaseModel):
 
 class DashboardAnalyticsResponse(BaseModel):
     user_name: str
-    subscription_status: str
     total_tests_completed: int
     total_drills_completed: int
     total_questions_solved: int

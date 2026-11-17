@@ -3,9 +3,15 @@ export interface User {
   email: string;
   full_name: string;
   role: 'student' | 'teacher' | 'admin';
-  subscription_status: 'active' | 'expired' | 'trial' | 'inactive';
-  subscription_plan?: string;
-  subscription_expires_at?: string;
+  is_approved: boolean;
+  created_at: string;
+}
+
+export interface PendingRegistration {
+  id: number;
+  email: string;
+  full_name: string;
+  role: 'student' | 'teacher';
   created_at: string;
 }
 
@@ -134,7 +140,6 @@ export interface RecentActivity {
 
 export interface DashboardAnalytics {
   user_name: string;
-  subscription_status: string;
   total_tests_completed: number;
   total_drills_completed: number;
   total_questions_solved: number;
@@ -151,7 +156,6 @@ export interface StudentSummary {
   id: number;
   full_name: string;
   email: string;
-  subscription_status: string;
   tests_completed: number;
   drills_completed: number;
   avg_score?: number;
@@ -160,7 +164,6 @@ export interface StudentSummary {
 
 export interface CohortOverview {
   total_students: number;
-  active_subscriptions: number;
   total_mock_attempts: number;
   cohort_avg_score: number;
   students: StudentSummary[];
@@ -185,10 +188,6 @@ export interface PublicSettings {
   target_score: number;
   enable_desmos_calculator: boolean;
   enable_math_reference_sheet: boolean;
-  require_subscription_for_mocks: boolean;
-  require_subscription_for_drills: boolean;
-  pro_pass_monthly_price: number;
-  trial_duration_days: number;
   default_drill_question_count: number;
   [key: string]: any;
 }
@@ -198,9 +197,6 @@ export interface StudentDetail {
     id: number;
     full_name: string;
     email: string;
-    subscription_status: string;
-    subscription_plan?: string;
-    subscription_expires_at?: string;
     created_at: string;
   };
   test_attempts: {

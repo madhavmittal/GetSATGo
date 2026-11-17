@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.core.config import settings as app_settings
-from app.models.database import engine, Base, SessionLocal
+from app.core.bootstrap import ensure_superuser
+from app.models.database import engine, Base, SessionLocal, ensure_database_compatibility
 from app.api import auth, tests, drills, dashboard, teacher
 from app.api import settings as settings_api
 from app.seed_data import seed_database
@@ -13,11 +14,19 @@ from app.api.settings import init_default_settings
 async def lifespan(app: FastAPI):
     # Create DB tables
     Base.metadata.create_all(bind=engine)
+    ensure_database_compatibility()
     # Seed default data & system settings
     db = SessionLocal()
     try:
         seed_database(db)
         init_default_settings(db)
+        ensure_superuser(
+            db,
+            app_settings.SUPERUSER_EMAIL,
+            app_settings.SUPERUSER_PASSWORD,
+            app_settings.SUPERUSER_NAME,
+            app_settings.ENVIRONMENT,
+        )
     finally:
         db.close()
     yield
@@ -32,7 +41,7 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[origin.strip() for origin in app_settings.CORS_ORIGINS.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

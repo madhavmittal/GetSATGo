@@ -1,24 +1,21 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
+import {
   GraduationCap, 
   BarChart3, 
   BookOpen, 
   Target, 
-  Crown, 
   UserCheck, 
   LogOut, 
   Menu, 
   X, 
-  Sparkles,
   ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 
 export const Navbar: React.FC = () => {
-  const { user, logout, isSubscriptionActive, setShowSubModal, activateSubscription, expireSubscription } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -97,7 +94,7 @@ export const Navbar: React.FC = () => {
                 Syllabus Drills
               </Link>
 
-              {user?.role === 'teacher' && (
+              {(user?.role === 'teacher' || user?.role === 'admin') && (
                 <Link
                   to="/teacher"
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold transition ${
@@ -115,23 +112,6 @@ export const Navbar: React.FC = () => {
 
           {/* Right Header Area */}
           <div className="hidden md:flex items-center gap-3">
-            {/* Subscription status pill */}
-            {isSubscriptionActive ? (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-xs font-semibold">
-                <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                <span>Pro SAT Pass Active</span>
-              </div>
-            ) : (
-              <Button
-                onClick={() => setShowSubModal(true)}
-                size="sm"
-                className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold"
-              >
-                <Sparkles className="w-3.5 h-3.5 mr-1" />
-                Unlock Full Access
-              </Button>
-            )}
-
             {/* Profile Dropdown */}
             <div className="relative">
               <button
@@ -157,36 +137,8 @@ export const Navbar: React.FC = () => {
                     <p className="text-xs text-slate-400">Signed in as</p>
                     <p className="text-sm font-bold text-slate-900 truncate">{user?.email}</p>
                     <Badge variant={user?.role === 'teacher' ? 'primary' : 'secondary'} className="mt-1">
-                      {user?.role === 'teacher' ? 'Educator Account' : 'Student Account'}
+                      {user?.role === 'admin' ? 'Administrator' : user?.role === 'teacher' ? 'Educator Account' : 'Student Account'}
                     </Badge>
-                  </div>
-
-                  {/* Dev / Test Controls */}
-                  <div className="px-3 py-2 border-b border-slate-100 text-xs text-slate-500 space-y-1">
-                    <span className="font-semibold text-[10px] uppercase tracking-wider text-slate-400 block px-1">
-                      Session & Subscription Testing
-                    </span>
-                    {user?.subscription_status === 'active' ? (
-                      <button
-                        onClick={() => {
-                          expireSubscription();
-                          setProfileDropdownOpen(false);
-                        }}
-                        className="w-full text-left px-2 py-1.5 rounded-lg text-rose-600 hover:bg-rose-50 font-medium transition"
-                      >
-                        Simulate Expired Pass
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          activateSubscription();
-                          setProfileDropdownOpen(false);
-                        }}
-                        className="w-full text-left px-2 py-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 font-medium transition"
-                      >
-                        Restore Pro Pass
-                      </button>
-                    )}
                   </div>
 
                   <div className="px-2 pt-1">
@@ -238,7 +190,7 @@ export const Navbar: React.FC = () => {
             >
               Syllabus Drills
             </Link>
-            {user?.role === 'teacher' && (
+            {(user?.role === 'teacher' || user?.role === 'admin') && (
               <Link
                 to="/teacher"
                 onClick={() => setMenuOpen(false)}

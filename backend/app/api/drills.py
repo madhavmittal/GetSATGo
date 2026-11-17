@@ -9,16 +9,13 @@ from app.models.models import Question, DrillAttempt, DrillAttemptAnswer, User
 from app.schemas.schemas import (
     QuestionTakingResponse, QuestionOption, DrillSubmission, DrillResultResponse, QuestionReviewResponse
 )
-from app.api.deps import require_active_subscription
+from app.api.deps import get_current_user
 from app.api.tests import check_answer_correctness
 
 router = APIRouter(prefix="/drills", tags=["Drill Practice Mode"])
 
-@router.get("/topics")
-def get_available_drill_topics(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
-):
+@router.get("/topics", dependencies=[Depends(get_current_user)])
+def get_available_drill_topics(db: Session = Depends(get_db)):
     """
     Returns available domains and topics with question counts across difficulty levels.
     """
@@ -40,14 +37,17 @@ def get_available_drill_topics(
 
     return structure
 
-@router.get("/questions", response_model=List[QuestionTakingResponse])
+@router.get(
+    "/questions",
+    response_model=List[QuestionTakingResponse],
+    dependencies=[Depends(get_current_user)],
+)
 def get_drill_questions(
     domain: Optional[str] = Query(None, description="e.g. Math or Reading & Writing"),
     topic: Optional[str] = Query(None, description="e.g. Algebra, Geometry & Trigonometry"),
     difficulty: Optional[str] = Query(None, description="Easy, Medium, or Hard"),
     limit: int = Query(10, ge=1, le=50),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
 ):
     """
     Fetches drill questions sorted by difficulty for the chosen syllabus section.
@@ -85,7 +85,7 @@ def get_drill_questions(
 def submit_drill(
     drill_in: DrillSubmission,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
+    current_user: User = Depends(get_current_user)
 ):
     question_ids = [ans.question_id for ans in drill_in.answers]
     questions = db.query(Question).filter(Question.id.in_(question_ids)).all()

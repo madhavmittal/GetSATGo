@@ -1,14 +1,22 @@
-version: '3.8'
-
 services:
   web:
-    build: .
+    build:
+      context: .
+      args:
+        MIXPANEL_PROJECT_TOKEN: ${VITE_MIXPANEL_TOKEN:-}
     ports:
       - "8000:8000"
     environment:
-      - PORT=8000
-      - SECRET_KEY=${SECRET_KEY:-getsatgo-production-secret-key-change-me}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-getsatgo}:${POSTGRES_PASSWORD:-getsatgopass}@db:5432/${POSTGRES_DB:-getsatgo_db}
+      PORT: 8000
+      ENVIRONMENT: production
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-getsatgo}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-getsatgo_db}"
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL in .env}
+      TEACHER_SIGNUP_CODE: ${TEACHER_SIGNUP_CODE:-}
+      SUPERUSER_EMAIL: ${SUPERUSER_EMAIL:-}
+      SUPERUSER_PASSWORD: ${SUPERUSER_PASSWORD:-}
+      SUPERUSER_NAME: ${SUPERUSER_NAME:-Madhav Mittal}
     depends_on:
       db:
         condition: service_healthy
@@ -18,7 +26,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-getsatgo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-getsatgopass}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-getsatgo_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data

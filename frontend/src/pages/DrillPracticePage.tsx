@@ -17,7 +17,6 @@ import { QuestionTaking, DrillSubmission, DrillResult, QuestionSubmission } from
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { DesmosCalculatorModal } from '../components/DesmosCalculatorModal';
-import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 
 interface DrillPracticePageProps {
@@ -31,7 +30,6 @@ export const DrillPracticePage: React.FC<DrillPracticePageProps> = ({
 }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { isSubscriptionActive, setShowSubModal } = useAuth();
   const { settings } = useSettings();
 
   const queryTopic = searchParams.get('topic');
@@ -97,12 +95,6 @@ export const DrillPracticePage: React.FC<DrillPracticePageProps> = ({
   }, [isDrillActive, drillResult]);
 
   const handleStartDrill = async () => {
-    const isGated = settings.require_subscription_for_drills === true;
-    if (isGated && !isSubscriptionActive) {
-      setShowSubModal(true);
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
     try {
@@ -126,9 +118,6 @@ export const DrillPracticePage: React.FC<DrillPracticePageProps> = ({
       setDrillResult(null);
       setIsDrillActive(true);
     } catch (err: any) {
-      if (err.status === 402) {
-        setShowSubModal(true);
-      }
       setError(err.message || 'Failed to fetch drill questions.');
     } finally {
       setIsLoading(false);

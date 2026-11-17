@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GraduationCap, ArrowRight, CheckCircle2, ShieldCheck, Sparkles, BookOpen, Clock, Calculator } from 'lucide-react';
+import { GraduationCap, ArrowRight, Sparkles, Clock, Calculator } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -11,7 +11,9 @@ export const AuthPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<'student' | 'teacher'>('student');
+  const [teacherInviteCode, setTeacherInviteCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [registrationSubmitted, setRegistrationSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,24 +25,14 @@ export const AuthPage: React.FC = () => {
       if (isLoginMode) {
         await login(email, password);
       } else {
-        await register(email, password, fullName, role);
+        await register(email, password, fullName, role, teacherInviteCode || undefined);
+        setRegistrationSubmitted(true);
+        setPassword('');
       }
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed. Please verify your credentials.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Authentication failed. Please verify your credentials.');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fillDemoAccount = (roleType: 'student' | 'teacher') => {
-    if (roleType === 'student') {
-      setEmail('student@getsatgo.com');
-      setPassword('student123');
-      setIsLoginMode(true);
-    } else {
-      setEmail('teacher@getsatgo.com');
-      setPassword('teacher123');
-      setIsLoginMode(true);
     }
   };
 
@@ -60,122 +52,128 @@ export const AuthPage: React.FC = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 sm:px-10 shadow-xl shadow-slate-200/50 rounded-3xl border border-slate-100">
-          {/* Quick Demo Login Pills */}
-          <div className="mb-6 p-3 rounded-2xl bg-slate-50 border border-slate-200/70">
-            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
-              <span>Quick Test Logins</span>
-              <span className="text-[10px] text-blue-600 font-semibold">1-Click Fill</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => fillDemoAccount('student')}
-                className="px-3 py-2 text-xs font-semibold rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition border border-blue-200 text-left"
-              >
-                <div className="font-bold">Student Alex</div>
-                <div className="text-[10px] text-blue-600">Pro Pass Active</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => fillDemoAccount('teacher')}
-                className="px-3 py-2 text-xs font-semibold rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 transition border border-purple-200 text-left"
-              >
-                <div className="font-bold">Prof. Sarah</div>
-                <div className="text-[10px] text-purple-600">Teacher View</div>
-              </button>
-            </div>
-          </div>
-
           {error && (
             <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLoginMode && (
-              <>
-                <Input
-                  label="Full Name"
-                  type="text"
-                  placeholder="e.g. Alex Chen"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Account Role</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setRole('student')}
-                      className={`py-2 px-3 text-xs font-semibold rounded-xl border transition ${
-                        role === 'student'
-                          ? 'border-blue-600 bg-blue-50 text-blue-700'
-                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      Student
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRole('teacher')}
-                      className={`py-2 px-3 text-xs font-semibold rounded-xl border transition ${
-                        role === 'teacher'
-                          ? 'border-purple-600 bg-purple-50 text-purple-700'
-                          : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      Teacher
-                    </button>
+          {registrationSubmitted ? (
+            <div className="space-y-4 text-center">
+              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
+                Your request has been submitted. You can sign in once an administrator approves your account.
+              </div>
+              <Button
+                type="button"
+                size="lg"
+                className="w-full"
+                onClick={() => {
+                  setRegistrationSubmitted(false);
+                  setIsLoginMode(true);
+                }}
+              >
+                Return to sign in
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {!isLoginMode && (
+                <>
+                  <Input
+                    label="Full Name"
+                    type="text"
+                    placeholder="e.g. Alex Chen"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                  />
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Account Role</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRole('student')}
+                        className={`py-2 px-3 text-xs font-semibold rounded-xl border transition ${
+                          role === 'student'
+                            ? 'border-blue-600 bg-blue-50 text-blue-700'
+                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        Student
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRole('teacher')}
+                        className={`py-2 px-3 text-xs font-semibold rounded-xl border transition ${
+                          role === 'teacher'
+                            ? 'border-purple-600 bg-purple-50 text-purple-700'
+                            : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        Teacher
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
+                  {role === 'teacher' && (
+                    <Input
+                      label="Teacher invitation code"
+                      type="password"
+                      value={teacherInviteCode}
+                      onChange={(e) => setTeacherInviteCode(e.target.value)}
+                      required
+                    />
+                  )}
+                </>
+              )}
 
-            <Input
-              label="Email Address"
-              type="email"
-              placeholder="student@getsatgo.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+              <Input
+                label="Email Address"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
 
-            <Input
-              label="Password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+              <Input
+                label="Password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
 
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full mt-2"
-              isLoading={isLoading}
-            >
-              {isLoginMode ? 'Sign In to Portal' : 'Create Student Account'}
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </form>
+              <Button
+                type="submit"
+                size="lg"
+                className="w-full mt-2"
+                isLoading={isLoading}
+              >
+                {isLoginMode ? 'Sign In' : `Create ${role === 'teacher' ? 'Teacher' : 'Student'} Account`}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </form>
+          )}
 
+          {!registrationSubmitted && (
           <div className="mt-6 pt-5 border-t border-slate-100 text-center">
             <button
               type="button"
               onClick={() => {
                 setIsLoginMode(!isLoginMode);
                 setError(null);
+                setTeacherInviteCode('');
+                setRegistrationSubmitted(false);
               }}
               className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition"
             >
               {isLoginMode
-                ? "Don't have an account? Sign up with 30-day trial"
+                ? "Don't have an account? Create one"
                 : 'Already have an account? Sign in'}
             </button>
           </div>
+          )}
         </div>
 
         {/* Feature Highlights */}

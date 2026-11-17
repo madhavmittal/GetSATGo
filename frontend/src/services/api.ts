@@ -11,7 +11,8 @@ import {
   QuestionTaking,
   PublicSettings,
   SettingItem,
-  StudentDetail
+  StudentDetail,
+  PendingRegistration
 } from '../types';
 
 const getApiBase = (): string => {
@@ -69,6 +70,10 @@ class ApiService {
       throw error;
     }
 
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
     return response.json();
   }
 
@@ -80,10 +85,16 @@ class ApiService {
     });
   }
 
-  async register(email: string, password: string, full_name: string, role = 'student'): Promise<{ access_token: string; user: User }> {
+  async register(
+    email: string,
+    password: string,
+    full_name: string,
+    role: 'student' | 'teacher' = 'student',
+    teacher_invite_code?: string
+  ): Promise<{ status: 'pending'; message: string }> {
     return this.request('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password, full_name, role }),
+      body: JSON.stringify({ email, password, full_name, role, teacher_invite_code }),
     });
   }
 
@@ -91,16 +102,19 @@ class ApiService {
     return this.request('/auth/me');
   }
 
-  async subscribe(plan = 'Pro SAT Pass', duration_months = 1): Promise<User> {
-    return this.request('/auth/subscribe', {
+  async getPendingRegistrations(): Promise<PendingRegistration[]> {
+    return this.request('/auth/admin/pending-registrations');
+  }
+
+  async approveRegistration(userId: number): Promise<User> {
+    return this.request(`/auth/admin/pending-registrations/${userId}/approve`, {
       method: 'POST',
-      body: JSON.stringify({ plan, duration_months }),
     });
   }
 
-  async simulateExpireSubscription(): Promise<User> {
-    return this.request('/auth/simulate-expire', {
-      method: 'POST',
+  async rejectRegistration(userId: number): Promise<void> {
+    return this.request(`/auth/admin/pending-registrations/${userId}`, {
+      method: 'DELETE',
     });
   }
 
@@ -165,12 +179,6 @@ class ApiService {
 
   async getStudentDetail(studentId: number): Promise<StudentDetail> {
     return this.request(`/teacher/students/${studentId}`);
-  }
-
-  async toggleStudentSubscription(studentId: number): Promise<{ message: string; subscription_status: string }> {
-    return this.request(`/teacher/students/${studentId}/toggle-subscription`, {
-      method: 'POST',
-    });
   }
 
   // System & Admin Settings endpoints

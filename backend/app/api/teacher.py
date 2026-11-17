@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -16,7 +16,6 @@ class StudentSummary(BaseModel):
     id: int
     full_name: str
     email: str
-    subscription_status: str
     tests_completed: int
     drills_completed: int
     avg_score: Optional[int] = None
@@ -24,7 +23,6 @@ class StudentSummary(BaseModel):
 
 class CohortOverview(BaseModel):
     total_students: int
-    active_subscriptions: int
     total_mock_attempts: int
     cohort_avg_score: int
     students: List[StudentSummary]
@@ -43,12 +41,16 @@ class NewQuestionPayload(BaseModel):
     explanation: str
     tips: Optional[str] = None
 
-@router.get("/cohort-overview", response_model=CohortOverview)
-def get_cohort_overview(
-    db: Session = Depends(get_db),
-    current_teacher: User = Depends(require_teacher)
-):
-    students = db.query(User).filter(User.role == "student").all()
+@router.get(
+    "/cohort-overview",
+    response_model=CohortOverview,
+    dependencies=[Depends(require_teacher)],
+)
+def get_cohort_overview(db: Session = Depends(get_db)):
+    students = db.query(User).filter(
+        User.role == "student",
+        User.is_approved.is_(True),
+    ).all()
     student_summaries = []
 
     total_attempts_count = 0
@@ -74,7 +76,6 @@ def get_cohort_overview(
             id=s.id,
             full_name=s.full_name,
             email=s.email,
-            subscription_status=s.subscription_status,
             tests_completed=len(t_attempts),
             drills_completed=len(d_attempts),
             avg_score=avg_score,
@@ -82,21 +83,17 @@ def get_cohort_overview(
         ))
 
     cohort_avg = int(sum(all_scores) / len(all_scores)) if all_scores else 520
-    active_subs = sum(1 for s in students if s.subscription_status == "active")
-
     return CohortOverview(
         total_students=len(students),
-        active_subscriptions=active_subs,
         total_mock_attempts=total_attempts_count,
         cohort_avg_score=cohort_avg,
         students=student_summaries
     )
 
-@router.post("/questions")
+@router.post("/questions", dependencies=[Depends(require_teacher)])
 def create_question(
     payload: NewQuestionPayload,
     db: Session = Depends(get_db),
-    current_teacher: User = Depends(require_teacher)
 ):
     q = Question(
         domain=payload.domain,
@@ -117,11 +114,10 @@ def create_question(
     db.refresh(q)
     return {"message": "Question created successfully", "question_id": q.id}
 
-@router.get("/students/{student_id}")
+@router.get("/students/{student_id}", dependencies=[Depends(require_teacher)])
 def get_student_detail(
     student_id: int,
     db: Session = Depends(get_db),
-    current_teacher: User = Depends(require_teacher)
 ):
     student = db.query(User).filter(User.id == student_id, User.role == "student").first()
     if not student:
@@ -160,37 +156,9 @@ def get_student_detail(
             "id": student.id,
             "full_name": student.full_name,
             "email": student.email,
-            "subscription_status": student.subscription_status,
-            "subscription_plan": student.subscription_plan,
-            "subscription_expires_at": student.subscription_expires_at,
             "created_at": student.created_at
         },
         "test_attempts": attempts_data,
         "drill_attempts": drills_data
-    }
-
-@router.post("/students/{student_id}/toggle-subscription")
-def toggle_student_subscription(
-    student_id: int,
-    db: Session = Depends(get_db),
-    current_teacher: User = Depends(require_teacher)
-):
-    student = db.query(User).filter(User.id == student_id).first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found.")
-
-    from datetime import timedelta
-    if student.subscription_status == "active":
-        student.subscription_status = "expired"
-        student.subscription_expires_at = datetime.now(timezone.utc) - timedelta(days=1)
-    else:
-        student.subscription_status = "active"
-        student.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=60)
-
-    db.commit()
-    db.refresh(student)
-    return {
-        "message": f"Updated subscription for {student.full_name}",
-        "subscription_status": student.subscription_status
     }
 

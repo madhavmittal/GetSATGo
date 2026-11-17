@@ -8,14 +8,14 @@ from sqlalchemy import desc
 from app.models.database import get_db
 from app.models.models import User, TestAttempt, DrillAttempt, MockTest
 from app.schemas.schemas import DashboardAnalyticsResponse, TopicStat, RecentActivity
-from app.api.deps import require_active_subscription
+from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/dashboard", tags=["Student Analytics Dashboard"])
 
 @router.get("/analytics", response_model=DashboardAnalyticsResponse)
 def get_dashboard_analytics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_active_subscription)
+    current_user: User = Depends(get_current_user)
 ):
     # 1. Fetch all test attempts and drill attempts for this user
     test_attempts = db.query(TestAttempt).filter(
@@ -155,7 +155,6 @@ def get_dashboard_analytics(
 
     return DashboardAnalyticsResponse(
         user_name=current_user.full_name,
-        subscription_status=current_user.subscription_status,
         total_tests_completed=total_tests,
         total_drills_completed=total_drills,
         total_questions_solved=total_q_solved,

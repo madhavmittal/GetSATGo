@@ -7,10 +7,11 @@
 
 ## 🚀 Key Features
 
-### 1. 🔐 Authentication & Session / Subscription Validation
-- **Secure JWT Auth**: Student and Teacher login/registration with bearer session tokens.
-- **Subscription Paywall & Session Validation**: Strict middleware gate (`require_active_subscription`) ensuring students hold an active subscription pass before accessing exams and drills.
-- **Trial & Mock Checkout**: Students can activate or simulate subscription renewal or expiration in 1-click.
+### 1. 🔐 Accounts & Approval
+- **Account registration and sign-in**: Password-hashed accounts with JWT sessions; new registrations wait for administrator approval.
+- **Administrator approval queue**: The owner reviews and approves or rejects student and teacher requests in the Instructor Hub.
+- **Free access after approval**: Approved users can use the full practice platform without a payment gateway.
+- **No demo accounts or simulated checkout**: Startup seeds practice content only, never users or historical student activity.
 
 ### 2. 📊 Student Analytics Dashboard
 - **Estimated SAT Scaled Score**: Predicts score based on recent mock attempts against a target (e.g. 1500+).
@@ -42,14 +43,14 @@
 - **Active Drill Engine**: Practice with live timer and Desmos calculator support.
 - **Instant Feedback**: Immediate scoring and step-by-step solutions that feed back into the student's dashboard analytics.
 
-### 6. 👩‍🏫 Teacher Portal, Cohort Inspection & Administrator Feature Controls
-- **Cohort Performance Overview**: Cohort average score, total tests completed, and active subscription count.
-- **Deep Student Inspection (No Dead Ends)**: Click any student in the roster to view their complete score progression, mock attempts, drill sessions, and toggle/grant their 60-day Pro Pass.
+### 6. 👩‍🏫 Teacher Portal, Cohort Inspection & Administrator Controls
+- **Cohort Performance Overview**: Cohort average score and total tests completed.
+- **Deep Student Inspection**: Click any student in the roster to view their complete score progression, mock attempts, and drill sessions.
+- **Administrator Approval Queue**: Review, approve, or reject new account requests in-app.
 - **Question Authoring Tool**: Teacher interface to create and publish new MCQ and SPR questions to the question bank.
 - **Administrator Dynamic Feature Controls**:
   - **Exam & Timer**: Customize default test duration, enable/disable countdown hiding, set time trap pace thresholds (e.g., 90s vs 120s), toggle question flagging and MCQ option strikethrough.
   - **Calculators & Aids**: Dynamically enable or disable the embedded Desmos graphing calculator and math formula sheet.
-  - **Access & Paywalls**: Configure whether mock tests and/or drills require a paid pass, adjust the displayed monthly subscription price, and configure free trial durations.
   - **Drill Settings**: Configure default questions per drill session.
   - **One-Click Actions**: "Save Changes" applies updates site-wide; "Restore Defaults" resets to factory presets.
 
@@ -64,7 +65,7 @@
 | `/tests/:testId` | **Digital SAT Exam Runner** | Full-screen timed simulator with Desmos, SPR/MCQ, and safe Exit button |
 | `/results/:attemptId` | **Official Score Report** | Scaled 200–800 score, section accuracy, per-question pacing & explanations |
 | `/drills` | **Syllabus Drill Studio** | Topic & difficulty practice with deep linking (`?topic=...&difficulty=...`) |
-| `/teacher` | **Instructor Hub** | Student roster inspection, question creator, and admin settings controls |
+| `/teacher` | **Instructor Hub** | Student roster, question authoring, admin settings, and account approvals |
 | `*` | **404 Not Found Page** | Graceful fallback with direct "Back to Dashboard" navigation (no dead ends) |
 
 ---
@@ -81,7 +82,10 @@
 
 ### 1. Backend Setup
 ```bash
-# From repository root:
+# From repository root, create a local environment file and set a unique SECRET_KEY:
+cp .env.example .env
+# Then load the values into the shell:
+set -a && source .env && set +a
 source venv/bin/activate
 uvicorn app.main:app --app-dir backend --reload --port 8000
 ```
@@ -91,16 +95,19 @@ uvicorn app.main:app --app-dir backend --reload --port 8000
 ```bash
 # In another terminal:
 cd frontend
+# Optional: add VITE_MIXPANEL_TOKEN to frontend/.env.local
 npm run dev
 ```
 - Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
 
-## 👥 Demo Logins (Pre-seeded)
+## ⚙️ Production Configuration
 
-| Role | Email | Password | Features |
-|---|---|---|---|
-| **Student** | `student@getsatgo.com` | `student123` | Active Pro Pass, historical analytics, full test taking |
-| **Teacher** | `teacher@getsatgo.com` | `teacher123` | Educator privileges, cohort analytics, question creator |
+- **Secrets and origins**: Set a unique `SECRET_KEY` (at least 32 characters), a strong `POSTGRES_PASSWORD`, `ENVIRONMENT=production`, `CORS_ORIGINS` (comma-separated trusted browser origins), and the public `FRONTEND_URL`. Docker Compose requires these values; do not deploy the example values.
+- **Administrator bootstrap**: Set `SUPERUSER_EMAIL` and a strong `SUPERUSER_PASSWORD` for the first production startup. The password must be at least 12 characters and no more than 72 UTF-8 bytes. Once the administrator is created, remove the password variable; startup will preserve the existing admin account. Public registration cannot grant admin privileges.
+- **Teacher onboarding**: Set `TEACHER_SIGNUP_CODE` to enable teacher registration. Share it only with trusted educators; leaving it empty disables teacher sign-up.
+- **Mixpanel**: Set `VITE_MIXPANEL_TOKEN` in `frontend/.env.local` for local development. Docker builds accept the same project token as `MIXPANEL_PROJECT_TOKEN`; hosted frontend builds need `VITE_MIXPANEL_TOKEN` in project environment settings. Use the Mixpanel project token, not the numeric project ID. The app records page views using normalized paths plus successful login, registration-request, and logout events. It does not enable autocapture or send email, names, or passwords.
+- **Docker deployment**: Copy `.env.example`, replace the placeholder secrets, set `FRONTEND_URL` to the public app URL, then run `docker compose up --build`. For local Compose, use `http://localhost:8000` as `FRONTEND_URL`; for Vite development, use `http://localhost:5173`.
+The database seeds practice questions and mock tests for a fresh installation. Users register through the app; no pre-defined accounts or sample performance records are created.
 

@@ -18,26 +18,30 @@ import {
   X,
   Eye,
   Calendar,
-  Lock,
-  Unlock,
   ChevronRight,
   TrendingUp,
   Target
 } from 'lucide-react';
 import { api } from '../services/api';
-import { CohortOverview, StudentSummary, StudentDetail, SettingItem } from '../types';
+import { CohortOverview, StudentDetail, SettingItem, PendingRegistration } from '../types';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 
 export const TeacherDashboardPage: React.FC = () => {
+  const { user } = useAuth();
   const { adminSettings, loadAdminSettings, updateAdminSettings, resetAdminSettings } = useSettings();
 
-  const [activeSubTab, setActiveSubTab] = useState<'roster' | 'questions' | 'settings'>('roster');
+  const [activeSubTab, setActiveSubTab] = useState<'roster' | 'questions' | 'settings' | 'approvals'>('roster');
   const [cohort, setCohort] = useState<CohortOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pendingRegistrations, setPendingRegistrations] = useState<PendingRegistration[]>([]);
+  const [isLoadingRegistrations, setIsLoadingRegistrations] = useState(false);
+  const [reviewingRegistrationId, setReviewingRegistrationId] = useState<number | null>(null);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
 
   // Selected student for deep inspection
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -72,6 +76,12 @@ export const TeacherDashboardPage: React.FC = () => {
     loadAdminSettings();
   }, []);
 
+  useEffect(() => {
+    if (activeSubTab === 'approvals' && user?.role === 'admin') {
+      loadPendingRegistrations();
+    }
+  }, [activeSubTab, user?.role]);
+
   const loadCohort = async () => {
     setIsLoading(true);
     try {
@@ -97,15 +107,33 @@ export const TeacherDashboardPage: React.FC = () => {
     }
   };
 
-  const handleToggleSubscription = async (studentId: number) => {
+  const loadPendingRegistrations = async () => {
+    setIsLoadingRegistrations(true);
+    setRegistrationError(null);
     try {
-      await api.toggleStudentSubscription(studentId);
-      // Refresh student detail and cohort
-      const detail = await api.getStudentDetail(studentId);
-      setStudentDetail(detail);
+      setPendingRegistrations(await api.getPendingRegistrations());
+    } catch (err) {
+      setRegistrationError(err instanceof Error ? err.message : 'Failed to load registration requests.');
+    } finally {
+      setIsLoadingRegistrations(false);
+    }
+  };
+
+  const handleReviewRegistration = async (registrationId: number, approve: boolean) => {
+    setReviewingRegistrationId(registrationId);
+    setRegistrationError(null);
+    try {
+      if (approve) {
+        await api.approveRegistration(registrationId);
+      } else {
+        await api.rejectRegistration(registrationId);
+      }
+      await loadPendingRegistrations();
       await loadCohort();
-    } catch (err: any) {
-      alert(`Could not toggle subscription: ${err.message}`);
+    } catch (err) {
+      setRegistrationError(err instanceof Error ? err.message : 'Failed to review registration.');
+    } finally {
+      setReviewingRegistrationId(null);
     }
   };
 
@@ -248,21 +276,33 @@ export const TeacherDashboardPage: React.FC = () => {
             <Sliders className="w-4 h-4" />
             Feature Controls
           </button>
+          {user?.role === 'admin' && (
+            <button
+              onClick={() => setActiveSubTab('approvals')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
+                activeSubTab === 'approvals'
+                  ? 'bg-white text-purple-800 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              Approvals
+              {pendingRegistrations.length > 0 && (
+                <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] text-rose-700">
+                  {pendingRegistrations.length}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Cohort KPIs (Always visible across tabs for quick teacher reference) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
           <div className="text-xs font-bold uppercase text-slate-400">Total Enrolled</div>
           <div className="text-3xl font-extrabold text-slate-900 mt-1">{cohort?.total_students || 0}</div>
           <div className="text-xs text-slate-500 mt-0.5">Registered students</div>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
-          <div className="text-xs font-bold uppercase text-slate-400">Active Subscriptions</div>
-          <div className="text-3xl font-extrabold text-emerald-600 mt-1">{cohort?.active_subscriptions || 0}</div>
-          <div className="text-xs text-emerald-600 mt-0.5 font-medium">Valid session passes</div>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
@@ -305,7 +345,6 @@ export const TeacherDashboardPage: React.FC = () => {
               <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-100">
                 <tr>
                   <th className="px-6 py-3.5">Student</th>
-                  <th className="px-4 py-3.5">Subscription</th>
                   <th className="px-4 py-3.5">Mocks</th>
                   <th className="px-4 py-3.5">Drills</th>
                   <th className="px-4 py-3.5">Avg Score</th>
@@ -322,11 +361,6 @@ export const TeacherDashboardPage: React.FC = () => {
                     <td className="px-6 py-4">
                       <div className="font-bold text-slate-900">{s.full_name}</div>
                       <div className="text-slate-400 text-[11px]">{s.email}</div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <Badge variant={s.subscription_status === 'active' ? 'success' : 'warning'}>
-                        {s.subscription_status === 'active' ? 'Pro Pass Active' : 'Expired'}
-                      </Badge>
                     </td>
                     <td className="px-4 py-4 font-mono font-semibold">{s.tests_completed}</td>
                     <td className="px-4 py-4 font-mono font-semibold">{s.drills_completed}</td>
@@ -355,6 +389,63 @@ export const TeacherDashboardPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeSubTab === 'approvals' && user?.role === 'admin' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending Account Requests</CardTitle>
+            <p className="text-xs text-slate-500 mt-1">
+              Approve accounts to grant access, or reject requests to remove them.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {registrationError && (
+              <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                {registrationError}
+              </div>
+            )}
+            {isLoadingRegistrations ? (
+              <p className="py-8 text-center text-sm text-slate-500">Loading requests...</p>
+            ) : pendingRegistrations.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-500">There are no pending account requests.</p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {pendingRegistrations.map((registration) => (
+                  <div key={registration.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="font-semibold text-slate-900">{registration.full_name}</div>
+                      <div className="text-sm text-slate-500">{registration.email}</div>
+                      <div className="mt-1 text-xs capitalize text-slate-400">
+                        {registration.role} · Requested {new Date(registration.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleReviewRegistration(registration.id, false)}
+                        disabled={reviewingRegistrationId !== null}
+                      >
+                        <X className="mr-1 h-4 w-4" />
+                        Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleReviewRegistration(registration.id, true)}
+                        isLoading={reviewingRegistrationId === registration.id}
+                        disabled={reviewingRegistrationId !== null}
+                      >
+                        <Check className="mr-1 h-4 w-4" />
+                        Approve
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -551,7 +642,7 @@ export const TeacherDashboardPage: React.FC = () => {
             <div>
               <h3 className="text-xl font-bold text-slate-900">Administrator Feature Controls</h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Modify exam timers, enable/disable calculators, adjust score thresholds, and configure subscription paywalls.
+                Modify exam timers, calculators, score thresholds, and drill defaults.
               </p>
             </div>
 
@@ -667,42 +758,6 @@ export const TeacherDashboardPage: React.FC = () => {
               </div>
             ) : studentDetail ? (
               <div className="space-y-6">
-                {/* Subscription Action Box */}
-                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 block">
-                      Subscription Pass Status
-                    </span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <Badge variant={studentDetail.student.subscription_status === 'active' ? 'success' : 'warning'}>
-                        {studentDetail.student.subscription_status === 'active' ? 'Active Pass' : 'Expired'}
-                      </Badge>
-                      <span className="text-xs text-slate-500">
-                        {studentDetail.student.subscription_plan || 'Pro Pass'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant={studentDetail.student.subscription_status === 'active' ? 'danger' : 'primary'}
-                    onClick={() => handleToggleSubscription(studentDetail.student.id)}
-                    className="text-xs"
-                  >
-                    {studentDetail.student.subscription_status === 'active' ? (
-                      <>
-                        <Lock className="w-3.5 h-3.5 mr-1" />
-                        Revoke Pass
-                      </>
-                    ) : (
-                      <>
-                        <Unlock className="w-3.5 h-3.5 mr-1" />
-                        Grant 60-Day Pass
-                      </>
-                    )}
-                  </Button>
-                </div>
-
                 {/* Mock Tests Attempts History */}
                 <div>
                   <h4 className="font-bold text-sm text-slate-900 mb-2 flex items-center gap-1.5">

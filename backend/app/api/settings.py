@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.database import get_db
-from app.models.models import SystemSetting, User
+from app.models.models import SystemSetting
 from app.schemas.schemas import SettingItem, SettingUpdatePayload
 from app.api.deps import require_teacher
 
@@ -80,40 +80,6 @@ DEFAULT_SETTINGS = [
         "setting_type": "boolean",
     },
 
-    # Subscription & Gating
-    {
-        "key": "require_subscription_for_mocks",
-        "value": True,
-        "category": "Access & Subscription",
-        "label": "Require Active Pass for Full Mock Tests",
-        "description": "When active, students without an active subscription pass cannot take full mock tests.",
-        "setting_type": "boolean",
-    },
-    {
-        "key": "require_subscription_for_drills",
-        "value": False,
-        "category": "Access & Subscription",
-        "label": "Require Active Pass for Syllabus Drills",
-        "description": "When false, free/trial students can practice syllabus drills without an active subscription.",
-        "setting_type": "boolean",
-    },
-    {
-        "key": "pro_pass_monthly_price",
-        "value": 29,
-        "category": "Access & Subscription",
-        "label": "Pro Student Pass Display Price ($)",
-        "description": "Monthly price displayed on the subscription paywall modal.",
-        "setting_type": "number",
-    },
-    {
-        "key": "trial_duration_days",
-        "value": 30,
-        "category": "Access & Subscription",
-        "label": "New Student Trial Duration (Days)",
-        "description": "Default active pass validity granted to newly registered student accounts.",
-        "setting_type": "number",
-    },
-
     # Drill Settings
     {
         "key": "default_drill_question_count",
@@ -126,6 +92,16 @@ DEFAULT_SETTINGS = [
 ]
 
 def init_default_settings(db: Session):
+    db.query(SystemSetting).filter(
+        SystemSetting.key.in_(
+            (
+                "require_subscription_for_mocks",
+                "require_subscription_for_drills",
+                "pro_pass_monthly_price",
+                "trial_duration_days",
+            )
+        )
+    ).delete(synchronize_session=False)
     for s_def in DEFAULT_SETTINGS:
         existing = db.query(SystemSetting).filter(SystemSetting.key == s_def["key"]).first()
         if not existing:
@@ -153,11 +129,12 @@ def get_public_settings(db: Session = Depends(get_db)):
     values = {s.key: s.value for s in settings}
     return values
 
-@router.get("", response_model=List[SettingItem])
-def get_all_settings_admin(
-    db: Session = Depends(get_db),
-    current_teacher: User = Depends(require_teacher)
-):
+@router.get(
+    "",
+    response_model=List[SettingItem],
+    dependencies=[Depends(require_teacher)],
+)
+def get_all_settings_admin(db: Session = Depends(get_db)):
     """
     Administrator / Teacher view of all controllable system variables with metadata.
     """
@@ -179,11 +156,10 @@ def get_all_settings_admin(
         ))
     return items
 
-@router.put("")
+@router.put("", dependencies=[Depends(require_teacher)])
 def update_settings(
     payload: SettingUpdatePayload,
     db: Session = Depends(get_db),
-    current_teacher: User = Depends(require_teacher)
 ):
     """
     Updates controllable variables dynamically.
@@ -200,11 +176,8 @@ def update_settings(
     db.commit()
     return {"message": f"Updated {len(updated_keys)} settings successfully", "keys": updated_keys}
 
-@router.post("/reset")
-def reset_to_defaults(
-    db: Session = Depends(get_db),
-    current_teacher: User = Depends(require_teacher)
-):
+@router.post("/reset", dependencies=[Depends(require_teacher)])
+def reset_to_defaults(db: Session = Depends(get_db)):
     """
     Resets all system settings back to default presets.
     """
