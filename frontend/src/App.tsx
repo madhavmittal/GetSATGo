@@ -18,6 +18,11 @@ export const App: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white space-y-3">
+        <img
+          src="/getsatgo-logo.png"
+          alt="GetSATGo"
+          className="mb-2 w-52 max-w-[70vw] rounded-lg object-contain"
+        />
         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         <p className="font-semibold text-sm text-slate-300">Loading GetSATGo...</p>
       </div>

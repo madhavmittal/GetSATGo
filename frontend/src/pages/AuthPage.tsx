@@ -5,7 +5,7 @@ import {
   GoogleOAuthProvider,
   type CredentialResponse,
 } from '@react-oauth/google';
-import { GraduationCap, ArrowRight, Sparkles, Clock, Calculator } from 'lucide-react';
+import { ArrowRight, Sparkles, Clock, Calculator } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { Button } from '../components/ui/Button';
@@ -68,11 +68,13 @@ export const AuthPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-flex w-14 h-14 rounded-2xl bg-blue-600 items-center justify-center text-white shadow-xl shadow-blue-500/25 mb-4">
-          <GraduationCap className="w-8 h-8" />
-        </div>
+        <img
+          src="/getsatgo-logo.png"
+          alt=""
+          className="mx-auto mb-4 h-20 w-auto max-w-full object-contain"
+        />
         <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-          Welcome to <span className="text-blue-600">GetSATGo</span>
+          Ace the <span className="text-blue-600">SAT.</span>
         </h2>
         <p className="mt-2 text-sm text-slate-600 max-w-sm mx-auto">
           The ultimate digital SAT practice platform with live timer, embedded Desmos, and drill analytics.

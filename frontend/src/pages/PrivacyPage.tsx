@@ -6,9 +6,10 @@ export const PrivacyPage: React.FC = () => (
     <article className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
       <Link
         to="/login"
-        className="text-sm font-semibold text-blue-700 hover:text-blue-900"
+        className="inline-flex items-center gap-3 text-sm font-semibold text-blue-700 hover:text-blue-900"
       >
-        Back to GetSATGo
+        <img src="/getsatgo-logo.png" alt="" className="h-8 w-auto object-contain" />
+        Back to sign in
       </Link>
 
       <h1 className="mt-6 text-3xl font-bold tracking-tight text-slate-900">

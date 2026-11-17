@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  GraduationCap, 
   BarChart3, 
   BookOpen, 
   Target, 
@@ -41,19 +40,13 @@ export const Navbar: React.FC = () => {
           <div className="flex items-center gap-8">
             <Link
               to="/dashboard"
-              className="flex items-center gap-2.5 focus:outline-none group text-left"
+              className="flex items-center focus:outline-none group text-left"
             >
-              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25 group-hover:scale-105 transition-transform">
-                <GraduationCap className="w-5 h-5" />
-              </div>
-              <div>
-                <span className="text-xl font-extrabold tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors">
-                  Get<span className="text-blue-600">SAT</span>Go
-                </span>
-                <span className="block text-[10px] font-bold text-slate-400 -mt-1 tracking-wider uppercase">
-                  Digital SAT Prep
-                </span>
-              </div>
+              <img
+                src="/getsatgo-logo.png"
+                alt="GetSATGo"
+                className="h-12 w-auto max-w-[150px] object-contain transition-opacity group-hover:opacity-80"
+              />
             </Link>
 
             {/* Desktop Navigation Links */}
