@@ -8,15 +8,20 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.auth import login, router as auth_router
+from app.api.settings import init_default_settings, router as settings_router
 from app.core.bootstrap import ensure_superuser
 from app.core.security import get_password_hash, verify_password
 from app.models.database import Base, get_db
-from app.models.models import User
+from app.models.models import SystemSetting, User
 from app.schemas.schemas import UserLogin
 
 
 class RegistrationApprovalTests(unittest.TestCase):
     def setUp(self):
+        self.google_auth_enabled_patcher = patch(
+            "app.api.auth.settings.GOOGLE_AUTH_ENABLED", True
+        )
+        self.google_auth_enabled_patcher.start()
         self.engine = create_engine(
             "sqlite://",
             connect_args={"check_same_thread": False},
@@ -24,16 +29,29 @@ class RegistrationApprovalTests(unittest.TestCase):
         )
         Base.metadata.create_all(bind=self.engine)
         self.session = sessionmaker(bind=self.engine)()
+        init_default_settings(self.session)
+        self.set_google_auth_setting(True)
 
     def tearDown(self):
         self.session.close()
         self.engine.dispose()
+        self.google_auth_enabled_patcher.stop()
 
     def create_client(self):
         app = FastAPI()
         app.include_router(auth_router)
+        app.include_router(settings_router)
         app.dependency_overrides[get_db] = lambda: self.session
         return TestClient(app)
+
+    def set_google_auth_setting(self, enabled):
+        setting = (
+            self.session.query(SystemSetting)
+            .filter_by(key="google_auth_enabled")
+            .one()
+        )
+        setting.value_json = "true" if enabled else "false"
+        self.session.commit()
 
     def get_auth_headers(self, client, email, password):
         response = client.post(
@@ -112,6 +130,141 @@ class RegistrationApprovalTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 503)
+
+    def test_google_auth_is_disabled_when_flag_is_false(self):
+        with (
+            patch("app.api.auth.settings.GOOGLE_AUTH_ENABLED", False),
+            patch("app.api.auth.verify_oauth2_token") as verify_token,
+            self.create_client() as client,
+        ):
+            response = client.post(
+                "/auth/google",
+                json={"credential": "test-credential", "mode": "register"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["detail"], "Google sign-in is currently disabled.")
+        verify_token.assert_not_called()
+        self.assertEqual(self.session.query(User).count(), 0)
+
+    def test_google_auth_requires_admin_setting(self):
+        self.set_google_auth_setting(False)
+        with (
+            patch("app.api.auth.settings.GOOGLE_CLIENT_ID", "test-client-id"),
+            patch("app.api.auth.verify_oauth2_token") as verify_token,
+            self.create_client() as client,
+        ):
+            response = client.post(
+                "/auth/google",
+                json={"credential": "test-credential", "mode": "register"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json()["detail"],
+            "Google sign-in is currently disabled by an administrator.",
+        )
+        verify_token.assert_not_called()
+
+    def test_only_admin_can_change_google_auth_setting(self):
+        self.set_google_auth_setting(False)
+        teacher = User(
+            email="teacher@example.com",
+            hashed_password=get_password_hash("teacher-password"),
+            full_name="Teacher",
+            role="teacher",
+            is_approved=True,
+        )
+        admin = User(
+            email="admin@example.com",
+            hashed_password=get_password_hash("admin-password"),
+            full_name="Administrator",
+            role="admin",
+            is_approved=True,
+        )
+        self.session.add_all([teacher, admin])
+        self.session.commit()
+
+        with (
+            patch("app.api.auth.settings.GOOGLE_CLIENT_ID", "test-client-id"),
+            self.create_client() as client,
+        ):
+            teacher_headers = self.get_auth_headers(
+                client, "teacher@example.com", "teacher-password"
+            )
+            teacher_response = client.put(
+                "/settings",
+                json={"settings": {"google_auth_enabled": True}},
+                headers=teacher_headers,
+            )
+            admin_headers = self.get_auth_headers(
+                client, "admin@example.com", "admin-password"
+            )
+            admin_response = client.put(
+                "/settings",
+                json={"settings": {"google_auth_enabled": True}},
+                headers=admin_headers,
+            )
+            teacher_reset_response = client.post(
+                "/settings/reset",
+                headers=teacher_headers,
+            )
+            setting_after_teacher_reset = (
+                self.session.query(SystemSetting)
+                .filter_by(key="google_auth_enabled")
+                .one()
+                .value
+            )
+            disable_response = client.put(
+                "/settings",
+                json={"settings": {"google_auth_enabled": False}},
+                headers=admin_headers,
+            )
+
+        self.assertEqual(teacher_response.status_code, 403)
+        self.assertEqual(admin_response.status_code, 200)
+        self.assertEqual(teacher_reset_response.status_code, 200)
+        self.assertTrue(setting_after_teacher_reset)
+        self.assertEqual(disable_response.status_code, 200)
+        self.assertFalse(
+            self.session.query(SystemSetting)
+            .filter_by(key="google_auth_enabled")
+            .one()
+            .value
+        )
+
+    def test_admin_cannot_enable_google_auth_when_deployment_gate_is_off(self):
+        self.set_google_auth_setting(False)
+        admin = User(
+            email="admin@example.com",
+            hashed_password=get_password_hash("admin-password"),
+            full_name="Administrator",
+            role="admin",
+            is_approved=True,
+        )
+        self.session.add(admin)
+        self.session.commit()
+
+        with (
+            patch("app.api.auth.settings.GOOGLE_AUTH_ENABLED", False),
+            self.create_client() as client,
+        ):
+            headers = self.get_auth_headers(
+                client, "admin@example.com", "admin-password"
+            )
+            response = client.put(
+                "/settings",
+                json={"settings": {"google_auth_enabled": True}},
+                headers=headers,
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertFalse(
+            self.session.query(SystemSetting)
+            .filter_by(key="google_auth_enabled")
+            .one()
+            .value
+        )
 
     def test_teacher_google_registration_requires_invitation_code(self):
         claims = {

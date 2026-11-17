@@ -4,8 +4,13 @@ from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.feature_flags import (
+    GOOGLE_AUTH_SETTING_KEY,
+    google_auth_available,
+    google_auth_enabled,
+)
 from app.models.database import get_db
-from app.models.models import SystemSetting
+from app.models.models import SystemSetting, User
 from app.schemas.schemas import SettingItem, SettingUpdatePayload
 from app.api.deps import require_teacher
 
@@ -89,6 +94,17 @@ DEFAULT_SETTINGS = [
         "description": "Number of practice questions fetched when launching a topic drill.",
         "setting_type": "number",
     },
+    {
+        "key": GOOGLE_AUTH_SETTING_KEY,
+        "value": False,
+        "category": "Authentication",
+        "label": "Enable Google Sign-In and Registration",
+        "description": (
+            "Allows Google sign-in and new account requests. Existing password "
+            "sign-ins remain available. The deployment must also allow Google auth."
+        ),
+        "setting_type": "boolean",
+    },
 ]
 
 def init_default_settings(db: Session):
@@ -127,6 +143,8 @@ def get_public_settings(db: Session = Depends(get_db)):
         settings = db.query(SystemSetting).all()
 
     values = {s.key: s.value for s in settings}
+    values["google_auth_available"] = google_auth_available()
+    values[GOOGLE_AUTH_SETTING_KEY] = google_auth_enabled(db)
     return values
 
 @router.get(
@@ -156,16 +174,37 @@ def get_all_settings_admin(db: Session = Depends(get_db)):
         ))
     return items
 
-@router.put("", dependencies=[Depends(require_teacher)])
+@router.put("")
 def update_settings(
     payload: SettingUpdatePayload,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher),
 ):
     """
     Updates controllable variables dynamically.
     """
     now = datetime.now(timezone.utc)
     updated_keys = []
+    if GOOGLE_AUTH_SETTING_KEY in payload.settings:
+        if current_user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only administrators can change Google sign-in settings.",
+            )
+        if not isinstance(payload.settings[GOOGLE_AUTH_SETTING_KEY], bool):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Google sign-in setting must be a boolean.",
+            )
+        if payload.settings[GOOGLE_AUTH_SETTING_KEY] and not google_auth_available():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Google sign-in is unavailable. Enable GOOGLE_AUTH_ENABLED "
+                    "and configure GOOGLE_CLIENT_ID in the deployment."
+                ),
+            )
+
     for key, val in payload.settings.items():
         setting = db.query(SystemSetting).filter(SystemSetting.key == key).first()
         if setting:
@@ -176,13 +215,21 @@ def update_settings(
     db.commit()
     return {"message": f"Updated {len(updated_keys)} settings successfully", "keys": updated_keys}
 
-@router.post("/reset", dependencies=[Depends(require_teacher)])
-def reset_to_defaults(db: Session = Depends(get_db)):
+@router.post("/reset")
+def reset_to_defaults(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher),
+):
     """
     Resets all system settings back to default presets.
     """
     now = datetime.now(timezone.utc)
     for s_def in DEFAULT_SETTINGS:
+        if (
+            s_def["key"] == GOOGLE_AUTH_SETTING_KEY
+            and current_user.role != "admin"
+        ):
+            continue
         setting = db.query(SystemSetting).filter(SystemSetting.key == s_def["key"]).first()
         if setting:
             setting.value_json = json.dumps(s_def["value"])
@@ -199,5 +246,10 @@ def reset_to_defaults(db: Session = Depends(get_db)):
             db.add(setting)
 
     db.commit()
-    return {"message": "All settings restored to factory defaults."}
+    message = (
+        "All settings restored to factory defaults."
+        if current_user.role == "admin"
+        else "Teacher settings restored to factory defaults."
+    )
+    return {"message": message}
 

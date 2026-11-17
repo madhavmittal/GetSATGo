@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
 from app.core.config import settings
+from app.core.feature_flags import google_auth_enabled
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models.database import get_db
 from app.models.models import User
@@ -63,10 +64,22 @@ def google_auth(
     response: Response,
     db: Session = Depends(get_db),
 ):
+    if not settings.GOOGLE_AUTH_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google sign-in is currently disabled.",
+        )
+
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Google sign-in is not configured.",
+        )
+
+    if not google_auth_enabled(db):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google sign-in is currently disabled by an administrator.",
         )
 
     try:

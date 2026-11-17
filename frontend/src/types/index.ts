@@ -189,6 +189,8 @@ export interface PublicSettings {
   enable_desmos_calculator: boolean;
   enable_math_reference_sheet: boolean;
   default_drill_question_count: number;
+  google_auth_available: boolean;
+  google_auth_enabled: boolean;
   [key: string]: any;
 }
 

@@ -8,7 +8,7 @@
 ## 🚀 Key Features
 
 ### 1. 🔐 Accounts & Approval
-- **Account registration and sign-in**: Password-hashed accounts with JWT sessions; new registrations wait for administrator approval.
+- **Account registration and sign-in**: New accounts require a Google-verified email and wait for administrator approval; existing password sign-ins remain supported. Sessions use JWTs.
 - **Administrator approval queue**: The owner reviews and approves or rejects student and teacher requests in the Instructor Hub.
 - **Free access after approval**: Approved users can use the full practice platform without a payment gateway.
 - **No demo accounts or simulated checkout**: Startup seeds practice content only, never users or historical student activity.
@@ -66,6 +66,7 @@
 | `/results/:attemptId` | **Official Score Report** | Scaled 200–800 score, section accuracy, per-question pacing & explanations |
 | `/drills` | **Syllabus Drill Studio** | Topic & difficulty practice with deep linking (`?topic=...&difficulty=...`) |
 | `/teacher` | **Instructor Hub** | Student roster, question authoring, admin settings, and account approvals |
+| `/privacy` | **Privacy Policy** | Public information about account, practice, and analytics data |
 | `*` | **404 Not Found Page** | Graceful fallback with direct "Back to Dashboard" navigation (no dead ends) |
 
 ---
@@ -107,8 +108,9 @@ npm run dev
 - **Secrets and origins**: Set a unique `SECRET_KEY` (at least 32 characters), a strong `POSTGRES_PASSWORD`, `ENVIRONMENT=production`, `CORS_ORIGINS` (comma-separated trusted browser origins), and the public `FRONTEND_URL`. Docker Compose requires these values; do not deploy the example values.
 - **Administrator bootstrap**: Set `SUPERUSER_EMAIL` and a strong `SUPERUSER_PASSWORD` for the first production startup. The password must be at least 12 characters and no more than 72 UTF-8 bytes. Once the administrator is created, remove the password variable; startup will preserve the existing admin account. Public registration cannot grant admin privileges.
 - **Teacher onboarding**: Set `TEACHER_SIGNUP_CODE` to enable teacher registration. Share it only with trusted educators; leaving it empty disables teacher sign-up.
-- **Google sign-in**: Create a Google OAuth client of type **Web application**, add your production URL and `http://localhost:5173` as authorized JavaScript origins, and set its client ID as `GOOGLE_CLIENT_ID`. Docker builds pass this ID to the frontend; local Vite development also needs `VITE_GOOGLE_CLIENT_ID` in `frontend/.env.local`. Google-verified accounts are required for new registrations; new accounts remain pending administrator approval. Existing password sign-ins continue to work. No OAuth client secret or redirect URI is used.
+- **Google sign-in**: Create a Google OAuth client of type **Web application**, add your production URL and `http://localhost:5173` as authorized JavaScript origins, and set `GOOGLE_CLIENT_ID`. Google sign-in requires both `GOOGLE_AUTH_ENABLED=true` in the deployment and the superuser's **Enable Google Sign-In and Registration** setting in **Teacher Dashboard → Feature Controls → Authentication**. Both default to disabled. The backend rejects Google authentication unless both are enabled and a client ID is configured. Local Vite development also needs `VITE_GOOGLE_CLIENT_ID` in `frontend/.env.local`. Google-verified accounts are required for new registrations; new accounts remain pending administrator approval. Existing password sign-ins continue to work. No OAuth client secret or redirect URI is used.
 - **Mixpanel**: Set `VITE_MIXPANEL_TOKEN` in `frontend/.env.local` for local development. Docker builds accept the same project token as `MIXPANEL_PROJECT_TOKEN`; hosted frontend builds need `VITE_MIXPANEL_TOKEN` in project environment settings. Use the Mixpanel project token, not the numeric project ID. The app records `page_view` on page loads and client-side route changes, plus successful login, registration-request, and logout events. It has no heartbeat or autocapture and does not send email, names, or passwords.
+- **Privacy policy**: The public policy is available at `/privacy` and linked from the sign-in page. Update it when data collection, providers, or retention practices change.
 - **Docker deployment**: Copy `.env.example`, replace the placeholder secrets, set `FRONTEND_URL` to the public app URL, then run `docker compose up --build`. For local Compose, use `http://localhost:8000` as `FRONTEND_URL`; for Vite development, use `http://localhost:5173`.
 - **Railway**: Use the Dockerfile builder with `/Dockerfile`. Set `GOOGLE_CLIENT_ID` for the backend and frontend build; set `MIXPANEL_PROJECT_TOKEN` for the frontend build.
 The database seeds practice questions and mock tests for a fresh installation. Users register through the app; no pre-defined accounts or sample performance records are created.

@@ -10,6 +10,7 @@ import { TestResultPage } from './pages/TestResultPage';
 import { DrillPracticePage } from './pages/DrillPracticePage';
 import { TeacherDashboardPage } from './pages/TeacherDashboardPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 
 export const App: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -27,6 +28,7 @@ export const App: React.FC = () => {
   if (!user) {
     return (
       <Routes>
+        <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/login" element={<AuthPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
@@ -35,6 +37,8 @@ export const App: React.FC = () => {
 
   return (
     <Routes>
+      <Route path="/privacy" element={<PrivacyPage />} />
+
       {/* Dedicated full-screen exam simulation runner (No distraction, authentic Bluebook exam) */}
       <Route path="/tests/:testId" element={<TestRunnerPage />} />
 

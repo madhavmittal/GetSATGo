@@ -12,6 +12,8 @@ const DEFAULT_PUBLIC_SETTINGS: PublicSettings = {
   enable_desmos_calculator: true,
   enable_math_reference_sheet: true,
   default_drill_question_count: 5,
+  google_auth_available: false,
+  google_auth_enabled: false,
 };
 
 interface SettingsContextType {

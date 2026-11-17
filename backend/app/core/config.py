@@ -19,6 +19,12 @@ class Settings(BaseModel):
     SUPERUSER_EMAIL: str = os.getenv("SUPERUSER_EMAIL", "")
     SUPERUSER_PASSWORD: str = os.getenv("SUPERUSER_PASSWORD", "")
     SUPERUSER_NAME: str = os.getenv("SUPERUSER_NAME", "Madhav Mittal")
+    GOOGLE_AUTH_ENABLED: bool = os.getenv("GOOGLE_AUTH_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "").strip()
 
 settings = Settings()

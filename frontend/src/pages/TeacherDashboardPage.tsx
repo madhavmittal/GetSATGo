@@ -32,7 +32,7 @@ import { useAuth } from '../context/AuthContext';
 
 export const TeacherDashboardPage: React.FC = () => {
   const { user } = useAuth();
-  const { adminSettings, loadAdminSettings, updateAdminSettings, resetAdminSettings } = useSettings();
+  const { settings, adminSettings, loadAdminSettings, updateAdminSettings, resetAdminSettings } = useSettings();
 
   const [activeSubTab, setActiveSubTab] = useState<'roster' | 'questions' | 'settings' | 'approvals'>('roster');
   const [cohort, setCohort] = useState<CohortOverview | null>(null);
@@ -217,12 +217,14 @@ export const TeacherDashboardPage: React.FC = () => {
 
   // Group settings by category
   const settingsByCategory: Record<string, SettingItem[]> = {};
-  adminSettings.forEach((item) => {
-    if (!settingsByCategory[item.category]) {
-      settingsByCategory[item.category] = [];
-    }
-    settingsByCategory[item.category].push(item);
-  });
+  adminSettings
+    .filter((item) => item.key !== 'google_auth_enabled' || user?.role === 'admin')
+    .forEach((item) => {
+      if (!settingsByCategory[item.category]) {
+        settingsByCategory[item.category] = [];
+      }
+      settingsByCategory[item.category].push(item);
+    });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
@@ -690,36 +692,53 @@ export const TeacherDashboardPage: React.FC = () => {
                     const currentVal = editedSettings[item.key] !== undefined ? editedSettings[item.key] : item.value;
 
                     return (
-                      <div key={item.key} className="p-4 flex items-center justify-between gap-4 hover:bg-slate-50/50 transition">
-                        <div className="space-y-0.5 max-w-sm">
-                          <div className="font-bold text-xs text-slate-900">{item.label}</div>
-                          <div className="text-[11px] text-slate-400 leading-snug">{item.description}</div>
-                        </div>
+                      <div key={item.key}>
+                        <div className="p-4 flex items-center justify-between gap-4 hover:bg-slate-50/50 transition">
+                          <div className="space-y-0.5 max-w-sm">
+                            <div className="font-bold text-xs text-slate-900">{item.label}</div>
+                            <div className="text-[11px] text-slate-400 leading-snug">{item.description}</div>
+                          </div>
 
-                        <div>
-                          {item.setting_type === 'boolean' ? (
-                            <button
-                              type="button"
-                              onClick={() => handleSettingChange(item.key, !currentVal)}
-                              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                currentVal ? 'bg-purple-600' : 'bg-slate-200'
-                              }`}
-                            >
-                              <span
-                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                  currentVal ? 'translate-x-5' : 'translate-x-0'
+                          <div>
+                            {item.setting_type === 'boolean' ? (
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-label={item.label}
+                                aria-checked={Boolean(currentVal)}
+                                disabled={
+                                  item.key === 'google_auth_enabled' &&
+                                  (user?.role !== 'admin' ||
+                                    (!settings.google_auth_available && !currentVal))
+                                }
+                                onClick={() => handleSettingChange(item.key, !currentVal)}
+                                className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+                                  currentVal ? 'bg-purple-600' : 'bg-slate-200'
                                 }`}
+                              >
+                                <span
+                                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                    currentVal ? 'translate-x-5' : 'translate-x-0'
+                                  }`}
+                                />
+                              </button>
+                            ) : (
+                              <input
+                                type="number"
+                                value={currentVal}
+                                onChange={(e) => handleSettingChange(item.key, parseFloat(e.target.value))}
+                                className="w-20 text-xs font-bold font-mono text-right p-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
                               />
-                            </button>
-                          ) : (
-                            <input
-                              type="number"
-                              value={currentVal}
-                              onChange={(e) => handleSettingChange(item.key, parseFloat(e.target.value))}
-                              className="w-20 text-xs font-bold font-mono text-right p-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            />
-                          )}
+                            )}
+                          </div>
                         </div>
+                        {item.key === 'google_auth_enabled' && !settings.google_auth_available && (
+                          <p className="px-4 pb-4 text-[11px] text-amber-700">
+                            {currentVal
+                              ? 'Google sign-in is blocked by deployment settings. Turn this off to keep it disabled when deployment settings are enabled later.'
+                              : 'Enable GOOGLE_AUTH_ENABLED and configure GOOGLE_CLIENT_ID in the deployment before turning this on.'}
+                          </p>
+                        )}
                       </div>
                     );
                   })}

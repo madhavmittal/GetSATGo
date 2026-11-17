@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   GoogleLogin,
   GoogleOAuthProvider,
@@ -6,11 +7,13 @@ import {
 } from '@react-oauth/google';
 import { GraduationCap, ArrowRight, Sparkles, Clock, Calculator } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 
 export const AuthPage: React.FC = () => {
   const { login, googleLogin } = useAuth();
+  const { settings } = useSettings();
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,6 +22,8 @@ export const AuthPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [registrationSubmitted, setRegistrationSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const googleAuthEnabled = settings.google_auth_enabled;
+  const googleAuthAvailable = settings.google_auth_available;
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -175,12 +180,12 @@ export const AuthPage: React.FC = () => {
 
           {!registrationSubmitted && (
             <div className="mt-5 flex flex-col items-center gap-2">
-              {googleClientId && (
+              {googleAuthEnabled && googleClientId && (
                 <span className="text-xs uppercase tracking-wide text-slate-400">
                   Or continue with
                 </span>
               )}
-              {googleClientId ? (
+              {googleAuthEnabled && googleClientId ? (
                 <GoogleOAuthProvider clientId={googleClientId}>
                   <div className={isLoading ? 'pointer-events-none opacity-60' : undefined}>
                     <GoogleLogin
@@ -193,13 +198,17 @@ export const AuthPage: React.FC = () => {
                 </GoogleOAuthProvider>
               ) : (
                 <p role="status" className="text-sm text-amber-700 text-center">
-                  Google sign-in is not configured for this deployment.
+                  {googleAuthEnabled
+                    ? 'Google sign-in is not available in this deployment.'
+                    : googleAuthAvailable
+                      ? 'Google sign-in and new account registration are temporarily disabled.'
+                      : 'Google sign-in is disabled in deployment settings.'}
                 </p>
               )}
             </div>
           )}
 
-          {!registrationSubmitted && (
+          {!registrationSubmitted && googleAuthEnabled && googleClientId && (
             <div className="mt-6 pt-5 border-t border-slate-100 text-center">
               <button
                 type="button"
@@ -217,6 +226,15 @@ export const AuthPage: React.FC = () => {
               </button>
             </div>
           )}
+
+          <div className="mt-4 text-center">
+            <Link
+              to="/privacy"
+              className="text-xs font-medium text-slate-500 underline hover:text-slate-700"
+            >
+              Privacy Policy
+            </Link>
+          </div>
         </div>
 
         {/* Feature Highlights */}
